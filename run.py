@@ -1,30 +1,14 @@
+import numpy as np
 from math import atan2, sqrt, cos, sin
+import random
+from collections import deque
 import arcade
+import tensorflow as tf
+from tensorflow import keras
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 800
 SCREEN_TITLE = "Drive.ai"
-
-
-class Dashboard():
-    WIDTH = 200
-    HEIGHT = 100
-    BACKGROUND_COLOR = arcade.color.WHITE
-
-    def __init__(self, car):
-        self._car = car
-
-    def draw(self):
-        arcade.draw_polygon_filled([(SCREEN_WIDTH - self.WIDTH, SCREEN_HEIGHT - self.HEIGHT),
-                                    (SCREEN_WIDTH - self.WIDTH, SCREEN_HEIGHT),
-                                    (SCREEN_WIDTH, SCREEN_HEIGHT),
-                                    (SCREEN_WIDTH, SCREEN_HEIGHT - self.HEIGHT)], self.BACKGROUND_COLOR)
-        arcade.draw_text(f"""
-- pos : ({self._car.center_x:.2f}, {self._car.center_y:.2f})
-- speed : {self._car.speed:.2f}
-- acc : {self._car.acc:.2f}
-- collides : {self._car.collides} 
-""", SCREEN_WIDTH - self.WIDTH, SCREEN_HEIGHT - self.HEIGHT, arcade.color.BLACK)
 
 
 class Radar():
@@ -51,12 +35,12 @@ class Radar():
         return [(self.start_x, self.start_y), (self.end_x, self.end_y)]
 
     def bip(self, objects):
-        collides = False
+        detects = False
         for o in objects:
             if arcade.are_polygons_intersecting(self._get_points(), o):
-                collides = True
+                detects = True
                 break
-        return collides
+        return detects
 
     def draw(self):
         arcade.draw_line(self.start_x, self.start_y,
@@ -144,16 +128,22 @@ class Car(arcade.Sprite):
         for radar in self.radars:
             radar.draw()
 
-    def run_radars(self, objects):
+    def check_collides(self, objects):
         self.collides = False
+        print(self.get_points())
+        for o in objects:
+            if arcade.are_polygons_intersecting(self.get_points(), o):
+                self.collides = True
+                break
+
+    def run_radars(self, objects):
         self.bips = [0] * 3
         for idx, radar in enumerate(self.radars):
             if radar.bip(objects):
-                self.collides = True
                 self.bips[idx] = 1
 
-    def metadata(self):
-        return { 'speed': self.speed,
+    def get_state(self):
+        return {'speed': self.speed,
                 'speed_x': self.change_x,
                 'speed_y': self.change_y,
                 'x': self.center_x,
@@ -161,12 +151,14 @@ class Car(arcade.Sprite):
                 'acc': self.acc,
                 'radians': self.radians,
                 'collides': self.collides,
-                'bips': self }
+                'bips': self.bips}
 
 
 class MyGame(arcade.Window):
 
-    def __init__(self, width, height, title):
+    steps = 0
+
+    def __init__(self, width, height, title, agent=None):
         super().__init__(width, height, title)
 
         arcade.set_background_color(arcade.color.AMAZON)
@@ -179,12 +171,11 @@ class MyGame(arcade.Window):
         self.right_pressed = False
         self.car = None
         self.test_polygon = None
-        # self.dashboard = None
+        self.agent = agent
 
     def setup(self):
         self.car = Car()
         self.test_polygon = [(400, 400), (500, 400), (500, 500), (400, 500)]
-        # self.dashboard = Dashboard(self.car)
 
     def on_draw(self):
         """ Render the screen. """
@@ -192,7 +183,6 @@ class MyGame(arcade.Window):
         arcade.start_render()  # Clear screen
         self.car.draw()
         arcade.draw_polygon_filled(self.test_polygon, arcade.color.BLUE)
-        # self.dashboard.draw()
 
     def update(self, delta_time):
         """
@@ -201,6 +191,19 @@ class MyGame(arcade.Window):
         need it.
         """
 
+        # Run dqn here
+        self.car.run_radars([self.test_polygon])
+        self.car.check_collides([self.test_polygon])
+        # get current state
+        car_state = self.car.get_state()
+        agent_state = [car_state['speed'], car_state['acc']] + car_state['bips']
+        agent_state = np.reshape(agent_state, [1, 5])
+        # get action to do
+        action = self.agent.act(agent_state)
+
+        self.do_action(action)
+
+        # execute action
         # throttle
         throttle = 0
         if self.up_pressed:
@@ -217,10 +220,32 @@ class MyGame(arcade.Window):
         self.car.turn(turn)
         self.car.throttle(throttle)
         self.car.update()
+
+        # get next state
         self.car.run_radars([self.test_polygon])
-        metadata = self.car.metadata()
-        if metadata['collides']:
+        self.car.check_collides([self.test_polygon])
+        
+        next_car_state = self.car.get_state()
+        next_agent_state = [next_car_state['speed'], next_car_state['acc']] + next_car_state['bips']
+        done = next_car_state['collides']
+        reward = self.compute_reward(next_agent_state, done)
+        next_agent_state = np.reshape(next_agent_state, [1, 5])
+        # remember
+        self.agent.remember(agent_state, action, reward, next_agent_state, done)
+        
+        if done:
+            # restart game
             self.setup()
+        if self.steps > 50:
+            self.agent.replay(32)
+        self.steps += 1
+
+    def compute_reward(self, agent_state, done):
+        if done:
+            return -500
+        else:
+            return agent_state[0] * 10 # speed
+
 
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed. """
@@ -246,13 +271,61 @@ class MyGame(arcade.Window):
         elif key == arcade.key.RIGHT:
             self.right_pressed = False
 
+    def do_action(self, action):
+        self.up_pressed = action == 0
+        self.right_pressed = action == 1
+        self.down_pressed = action == 2
+        self.left_pressed = action == 3
 
-def main():
-    """ Main method """
-    game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-    game.setup()
-    arcade.run()
+
+class DQNAgent():
+    def __init__(self, state_size, action_size):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.memory = deque(maxlen=2000)
+        self.gamma = 0.95    # discount rate
+        self.epsilon = 1.0  # exploration rate
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        self.learning_rate = 0.001
+        self.model = self._build_model()
+
+    def _build_model(self):
+        # Neural Net for Deep-Q learning Model
+        model = keras.Sequential()
+        model.add(keras.layers.Dense(
+            24, input_dim=self.state_size, activation='relu'))
+        model.add(keras.layers.Dense(24, activation='relu'))
+        model.add(keras.layers.Dense(self.action_size, activation='linear'))
+        model.compile(loss='mse',
+                      optimizer=keras.optimizers.Adam(lr=self.learning_rate))
+        return model
+
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
+
+    def act(self, state):
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0])  # returns action
+
+    def replay(self, batch_size):
+        minibatch = random.sample(self.memory, batch_size)
+        for state, action, reward, next_state, done in minibatch:
+            target = reward
+            if not done:
+                target = reward + self.gamma * \
+                    np.amax(self.model.predict(next_state)[0])
+            target_f = self.model.predict(state)
+            target_f[0][action] = target
+            self.model.fit(state, target_f, epochs=1, verbose=0)
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
 
 
 if __name__ == "__main__":
-    main()
+    agent = DQNAgent(5, 4)  # 3 radars, 4 keys
+    game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, agent=agent)
+    game.setup()
+    arcade.run()

@@ -63,9 +63,10 @@ class Car(arcade.Sprite):
     STEER = 0.1
 
     def __init__(self):
-        super().__init__('images/car.png', scale=0.25, center_x=50, center_y=100)
+        super().__init__('images/car.png', scale=0.25, center_x=20, center_y=100)
         self.acc = 0
         self.speed = 0
+        self.distance = 0
         self.radars = [Radar(self), Radar(self, 0.523), Radar(self, -0.523), Radar(self, 0.25), Radar(self, -0.25)]
         self.bips = [0] * len(self.radars)
         self.collides = False
@@ -125,6 +126,8 @@ class Car(arcade.Sprite):
             self.center_y = SCREEN_HEIGHT
         if self.center_y > SCREEN_HEIGHT:
             self.center_y = 0
+        # total distance
+        self.distance += self.speed
 
         for radar in self.radars:
             radar.update()
@@ -152,6 +155,7 @@ class Car(arcade.Sprite):
         return {'speed': self.speed,
                 'speed_x': self.change_x,
                 'speed_y': self.change_y,
+                'distance': self.distance,
                 'x': self.center_x,
                 'y': self.center_y,
                 'acc': self.acc,
@@ -177,25 +181,34 @@ class MyGame(arcade.Window):
         self.car = None
         self.terrains = []
         self.agent = agent
+        self.draw = True
 
     def setup(self):
         print(" ----- GAME" , self.games)
         self.steps = 0
+        self.up_pressed = False
+        self.down_pressed = False
+        self.left_pressed = False
+        self.right_pressed = False
         self.car = Car()
+        self.terrains = []
         self.terrains.append([(400, 400), (500, 400), (500, 500), (400, 500)])
         self.terrains.append([(200, 200), (300, 200), (300, 300), (200, 300)])
         self.terrains.append([(500, 100), (550, 100), (550, 300), (500, 300)])
         self.terrains.append([(100, 700), (400, 700), (400, 600), (100, 600)])
         self.terrains.append([(700, 700), (750, 700), (750, 750), (700, 750)])
-        self.terrains.append([(0, 0), (50, 0), (50, 50), (0, 50)])
-        self.terrains.append([(20, 400), (20, 600), (80, 600), (80, 400)])
+        # self.terrains.append([(0, 0), (50, 0), (50, 50), (0, 50)])
+        self.terrains.append([(70, 300), (70, 500), (80, 500), (80, 300)])
         self.terrains.append([(700, 400), (750, 400), (750, 600), (700, 600)])
-        self.terrains.append([(300, 20), (300, 50), (500, 50), (500, 20)])
+        self.terrains.append([(200, 100), (200, 50), (400, 50), (400, 100)])
 
     def on_draw(self):
         """ Render the screen. """
         # return
         arcade.start_render()  # Clear screen
+        if not self.draw:
+            return
+        
         self.car.draw()
         for o in self.terrains:
             arcade.draw_polygon_filled(o, arcade.color.BLUE)
@@ -206,20 +219,19 @@ class MyGame(arcade.Window):
         Normally, you'll call update() on the sprite lists that
         need it.
         """
-        print("--- STEP" , self.steps)
+
 
         # Run dqn here
         self.car.run_radars(self.terrains)
         self.car.check_collides(self.terrains)
         # get current state
         car_state = self.car.get_state()
-        agent_state = [car_state['speed'],
+        agent_state = [car_state['distance'], car_state['speed'],
                        car_state['acc']] + car_state['bips']
-        agent_state = np.reshape(agent_state, [1, 7])
-        print('state : ', agent_state)
+        agent_state = np.reshape(agent_state, [1, 8])
+
         # get action to do
         action = self.agent.act(agent_state)
-        print('action : ', action)
 
         self.do_action(action)
 
@@ -246,12 +258,12 @@ class MyGame(arcade.Window):
         self.car.check_collides(self.terrains)
 
         next_car_state = self.car.get_state()
-        next_agent_state = [next_car_state['speed'],
+        next_agent_state = [next_car_state['distance'], next_car_state['speed'],
                             next_car_state['acc']] + next_car_state['bips']
         done = next_car_state['collides']
         reward = self.compute_reward(next_agent_state, done)
-        print('reward : ', reward)
-        next_agent_state = np.reshape(next_agent_state, [1, 7])
+        next_agent_state = np.reshape(next_agent_state, [1, 8])
+        print("--- STEP" , self.steps, ' -- radars : ' , self.car.bips, ' -- reward :', reward)
         # remember
         self.agent.remember(agent_state, action, reward,
                             next_agent_state, done)
@@ -261,19 +273,20 @@ class MyGame(arcade.Window):
             print("--- RESTART --------------------------------")
             self.games += 1
             self.setup()
-        if self.steps > 50:
-            self.agent.replay(32)
+        if self.steps > 20 and self.steps % 5 == 0:
+            self.agent.replay(20)
         self.steps += 1
 
     def compute_reward(self, agent_state, done):
         if done:
-            return -700
+            return -10000
         else:
-            return agent_state[0] * 15  # speed
+            return agent_state[1] * 5 # distance and speed
 
     def on_key_press(self, key, modifiers):
         """Called whenever a key is pressed. """
-
+        if key == arcade.key.D:
+            self.draw = not self.draw
         if key == arcade.key.UP:
             self.up_pressed = True
         elif key == arcade.key.DOWN:
@@ -306,10 +319,10 @@ class DQNAgent():
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=3000)
         self.gamma = 0.95    # discount rate
-        self.epsilon = 1.0  # exploration rate
-        self.epsilon_min = 0.01
+        self.epsilon = 1  # exploration rate
+        self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
         self.model = self._build_model()
@@ -317,9 +330,8 @@ class DQNAgent():
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = keras.Sequential()
-        model.add(keras.layers.Dense(
-            24  , input_dim=self.state_size, activation='relu'))
-        model.add(keras.layers.Dense(24, activation='relu'))
+        model.add(keras.layers.Dense(10, input_dim=self.state_size, activation='relu'))
+        model.add(keras.layers.Dense(10, activation='relu'))
         model.add(keras.layers.Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
                       optimizer=keras.optimizers.Adam(lr=self.learning_rate))
@@ -333,8 +345,11 @@ class DQNAgent():
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state):
+        print(self.epsilon)
         if np.random.rand() <= self.epsilon:
+            print("explore")
             return random.randrange(self.action_size)
+        print("not explore")
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])  # returns action
 
@@ -354,7 +369,7 @@ class DQNAgent():
 
 
 if __name__ == "__main__":
-    agent = DQNAgent(7, 4)
+    agent = DQNAgent(8, 4)
     game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, agent=agent)
     game.setup()
     arcade.run()

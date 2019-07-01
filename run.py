@@ -296,8 +296,8 @@ class MyGame(arcade.Window):
     def _get_reward(self, state, done):
         if done:
             # collides
-            return -10
-        return 1  # speed = distance in one step
+            return -20
+        return len(state) - sum(state) # number of radars not detecting anything
 
 
 class DQNAgent():

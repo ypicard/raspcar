@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 800
-checkpoint_path = "saves/cp.ckpt"
+# no_obstacles, cp, gamma_0-1.ckpt
+checkpoint_path = "saves/save.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                  save_weights_only=True,
@@ -20,7 +21,7 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
 
 class Radar():
 
-    def __init__(self, car, radians_offset=0, length=100, ):
+    def __init__(self, car, radians_offset=0, length=50):
         self.car = car
         self._length = length
         self.radians_offset = radians_offset
@@ -61,7 +62,7 @@ class Car(arcade.Sprite):
     CAR_WIDTH = 50
     CAR_LENGTH = 100
     _speed = 5
-    STEER = 0.1
+    _steer = 0.1
 
     def __init__(self, terrain):
         super().__init__('images/car.png', scale=0.25, center_x=SCREEN_WIDTH/2, center_y=SCREEN_HEIGHT/2)
@@ -71,6 +72,8 @@ class Car(arcade.Sprite):
         self.bips = [0] * len(self.radars)
         self.collides = False
         self._terrain = terrain
+        self.change_angle = 0
+        # self.radians = random.random() * 3.14
 
     def turn(self, val):
         """
@@ -79,9 +82,10 @@ class Car(arcade.Sprite):
         val = 0 : straight
         val = -1 : left
         """
-        self.radians -= val * self.STEER
+        self.change_angle = -val * self._steer
 
     def update(self):
+        self.radians += self.change_angle
         self.change_x = self._speed * cos(self.radians)
         self.change_y = self._speed * sin(self.radians)
         self.center_x += self.change_x
@@ -101,7 +105,7 @@ class Car(arcade.Sprite):
         self._run_radars()
         self._check_collides()
         print(
-            f"car : distance={self._distance} - speed={self._speed} - collides={self.collides} - bips={self.bips}")
+            f"car : distance={self._distance} - speed={self._speed} - collides={self.collides} - change_angle={self.change_angle} - bips={self.bips}")
 
     def draw(self):
         """ Override Sprite draw method """
@@ -123,7 +127,7 @@ class Car(arcade.Sprite):
             self.bips[idx] = radar.detects
 
     def get_state(self):
-        return [self.collides, self._distance, self._speed] + self.bips
+        return [self.collides, self._distance, self._speed, self.change_angle] + self.bips
 
 
 class MyGame(arcade.Window):
@@ -145,7 +149,7 @@ class MyGame(arcade.Window):
         self.draw = True
         self.graphs = False
         self.pause = False
-        self.history = {'games': [], 'steps': [], 'epsilons': [], 'rewards': [], 'loss': []}
+        self.history = {'games': [], 'score': [], 'epsilons': [], 'rewards': [], 'loss': []}
         self._world = []
         # map 1
         # self._world.append([(400, 400), (500, 400), (500, 500), (400, 500)])
@@ -164,12 +168,17 @@ class MyGame(arcade.Window):
         #top
         # selfd._world.append([(0, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT - 330), (0, SCREEN_HEIGHT- 330)])
         # top left
-        self._world.append([(150, 400), (380, 400), (380, 600), (150, 600)])
-        # top right
-        self._world.append([(650, 600), (750, 600), (750, 350), (650, 350)])
+        # self._world.append([(150, 350), (300, 350), (300, 600), (150, 600)])
+        # # top right
+        # self._world.append([(650, 600), (750, 600), (750, 350), (650, 350)])
+        # # bottom
+        # self._world.append([(200, 200), (600, 200), (600, 100), (200, 100)])
+
+        # map 3
         # bottom
-        self._world.append([(200, 200), (600, 200), (600, 100), (200, 100)])
-        
+        self._world.append([(0, 350), (SCREEN_WIDTH, 350), (SCREEN_WIDTH, 0), (0, 0)]) 
+        # top
+        self._world.append([(0, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT - 350), (0, SCREEN_HEIGHT- 350)])
         
 
     def setup(self):
@@ -192,6 +201,7 @@ class MyGame(arcade.Window):
         self.car.draw()
         for o in self._world:
             arcade.draw_polygon_filled(o, arcade.color.BLUE)
+        arcade.draw_text(str(self._steps), 10, SCREEN_HEIGHT-20, arcade.color.WHITE)
 
     def update(self, delta_time):
         """
@@ -205,7 +215,7 @@ class MyGame(arcade.Window):
         if self.graphs:
             fig, ax = plt.subplots(nrows=2, ncols=2)
             ax[0, 0].plot(self.history['games'],
-                          self.history['steps'], label='steps')
+                          self.history['score'], label='score')
 
             ax[0, 1].plot(self.history['games'],
                           self.history['epsilons'], label='epsilons')
@@ -221,8 +231,9 @@ class MyGame(arcade.Window):
         print(f"- step #{self._steps}")
 
         # get current state
-        cur_state, done = self._get_state()
-        cur_state = np.reshape(cur_state, [1, 3])
+        cur_state = self._get_state()
+        print('cur state', cur_state)
+        cur_state = np.reshape(cur_state, [1, 4])
 
         # get agent action
         action = agent.act(cur_state)
@@ -234,23 +245,26 @@ class MyGame(arcade.Window):
         self.car.turn(turn)
         self.car.update()
 
-        next_state, done = self._get_state()
-        reward = self._get_reward(next_state, done)
+        next_state = self._get_state()
+        collides = self.car.collides
+        print('next state', next_state)
+        reward = self._get_reward(next_state, collides)
+        done = collides or self._steps> 500 # collides
         print(f"reward={reward}")
         self.cum_reward += reward
-        next_state = np.reshape(next_state, [1, 3])
+        next_state = np.reshape(next_state, [1, 4])
 
         self.agent.remember(cur_state, action, reward, next_state, done)
 
         self._steps += 1
         # replay
-        if self._steps > 32 and self._steps % 5 == 0:
-            history = self.agent.replay(32)
+        if self._steps > 10 and self._steps % 10 == 0:
+            history = self.agent.replay(10)
             self.history['loss'].append(history.history['loss'][0])
 
         if done:
             self.history['games'].append([self.games])
-            self.history['steps'].append([self._steps])
+            self.history['score'].append([self._steps])
             self.history['epsilons'].append([self.agent.epsilon])
             self.history['rewards'].append([self.cum_reward])
 
@@ -292,18 +306,17 @@ class MyGame(arcade.Window):
 
     def _get_state(self):
         car_state = self.car.get_state()
-        # [...bips]
+        # [change_angle, ...bips]
         state = car_state[3:]
-        # collides
-        done = car_state[0]
         
-        return state, done
+        return state
 
-    def _get_reward(self, state, done):
-        if done:
+    def _get_reward(self, state, collides):
+        if collides:
             # collides
             return -500
-        return 30 - sum(state) # number of radars not detecting anything
+        # max reward - radars activated - turning angle (to reward straight lines)
+        return 4 - sum(state[1:]) - abs(state[0]) * 3
 
 
 class DQNAgent():
@@ -312,7 +325,7 @@ class DQNAgent():
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
         self.gamma = 0.95  # discount rate
-        self.epsilon = 1  # exploration rate
+        self.epsilon = 0.05  # exploration rate
         self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
@@ -328,9 +341,8 @@ class DQNAgent():
         model.compile(loss='mse',
                       optimizer=keras.optimizers.Adam(lr=self.learning_rate))
         # load saved model
-        if Path(checkpoint_dir).exists():
-            latest = tf.train.latest_checkpoint(checkpoint_dir)
-            model.load_weights(latest)
+        # latest = tf.train.latest_checkpoint(checkpoint_dir)
+        # model.load_weights(latest)
         return model
 
     def remember(self, state, action, reward, next_state, done):
@@ -342,16 +354,17 @@ class DQNAgent():
             return random.randrange(self.action_size)
 
         act_values = self.model.predict(state)
-        return np.argmax(act_values[0])  # returns action
+        print(act_values[0])
+        return np.argmax(act_values[0])  # regturns action
 
     def replay(self, batch_size):
+        print("replay")
         minibatch = random.sample(self.memory, batch_size)
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
                 target = reward + self.gamma * \
                     np.amax(self.model.predict(next_state)[0])
-            print('target', target)
             target_f = self.model.predict(state)
             target_f[0][action] = target
             history = self.model.fit(state, target_f, epochs=1,
@@ -362,7 +375,7 @@ class DQNAgent():
 
 
 if __name__ == "__main__":
-    state_size = 3
+    state_size = 4
     nb_actions = 3
     agent = DQNAgent(state_size, nb_actions)
     game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, agent=agent)

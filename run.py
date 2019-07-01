@@ -66,8 +66,8 @@ class Car(arcade.Sprite):
     def __init__(self, terrain):
         super().__init__('images/car.png', scale=0.25, center_x=SCREEN_WIDTH/2, center_y=SCREEN_HEIGHT/2)
         self._distance = 0
-        self.radars = [Radar(self, 0.5), Radar(self, 0.25), Radar(
-            self), Radar(self, -0.25), Radar(self, -0.5)]
+        self.radars = [Radar(self, 0.5), Radar(
+            self), Radar(self, -0.5)]
         self.bips = [0] * len(self.radars)
         self.collides = False
         self._terrain = terrain
@@ -145,7 +145,7 @@ class MyGame(arcade.Window):
         self.draw = True
         self.graphs = False
         self.pause = False
-        self.history = {'games': [], 'steps': [], 'epsilons': [], 'rewards': []}
+        self.history = {'games': [], 'steps': [], 'epsilons': [], 'rewards': [], 'loss': []}
         self._world = []
         # map 1
         # self._world.append([(400, 400), (500, 400), (500, 500), (400, 500)])
@@ -157,17 +157,18 @@ class MyGame(arcade.Window):
         # self._world.append([(70, 300), (70, 500), (80, 500), (80, 300)])
         # self._world.append([(700, 400), (750, 400), (750, 600), (700, 600)])
         # self._world.append([(200, 100), (200, 50), (400, 50), (400, 100)])
+
         # map 2
         # bottom
-        self._world.append([(0, 250), (SCREEN_WIDTH, 250), (SCREEN_WIDTH, 0), (0, 0)]) 
+        # self._world.append([(0, 250), (SCREEN_WIDTH, 250), (SCREEN_WIDTH, 0), (0, 0)]) 
         #top
-        self._world.append([(0, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT - 330), (0, SCREEN_HEIGHT- 330)])
+        # selfd._world.append([(0, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT), (SCREEN_WIDTH, SCREEN_HEIGHT - 330), (0, SCREEN_HEIGHT- 330)])
         # top left
         self._world.append([(150, 400), (380, 400), (380, 600), (150, 600)])
         # top right
-        self._world.append([(650, 800), (750, 800), (750, 350), (650, 350)])
+        self._world.append([(650, 600), (750, 600), (750, 350), (650, 350)])
         # bottom
-        self._world.append([(200, 300), (600, 300), (600, 200), (200, 200)])
+        self._world.append([(200, 200), (600, 200), (600, 100), (200, 100)])
         
         
 
@@ -179,6 +180,7 @@ class MyGame(arcade.Window):
         self.left_pressed = False
         self.right_pressed = False
         self.car = Car(terrain=self._world)
+        self.cum_reward = 0
 
     def on_draw(self):
         """ Render the screen. """
@@ -211,6 +213,8 @@ class MyGame(arcade.Window):
             ax[1, 0].plot(self.history['games'],
                           self.history['rewards'], label='rewards')
             plt.legend()
+            ax[1, 1].plot(self.history['loss'], label='loss')
+            plt.legend()
             plt.show()
             self.graphs = False
 
@@ -218,7 +222,7 @@ class MyGame(arcade.Window):
 
         # get current state
         cur_state, done = self._get_state()
-        cur_state = np.reshape(cur_state, [1, 5])
+        cur_state = np.reshape(cur_state, [1, 3])
 
         # get agent action
         action = agent.act(cur_state)
@@ -233,20 +237,22 @@ class MyGame(arcade.Window):
         next_state, done = self._get_state()
         reward = self._get_reward(next_state, done)
         print(f"reward={reward}")
-        next_state = np.reshape(next_state, [1, 5])
+        self.cum_reward += reward
+        next_state = np.reshape(next_state, [1, 3])
 
         self.agent.remember(cur_state, action, reward, next_state, done)
 
         self._steps += 1
         # replay
-        if self._steps % 35 == 0:
-            self.agent.replay(32)
+        if self._steps > 32 and self._steps % 5 == 0:
+            history = self.agent.replay(32)
+            self.history['loss'].append(history.history['loss'][0])
 
         if done:
             self.history['games'].append([self.games])
             self.history['steps'].append([self._steps])
             self.history['epsilons'].append([self.agent.epsilon])
-            self.history['rewards'].append([reward])
+            self.history['rewards'].append([self.cum_reward])
 
             # restart game
             self.games += 1
@@ -296,17 +302,17 @@ class MyGame(arcade.Window):
     def _get_reward(self, state, done):
         if done:
             # collides
-            return -20
-        return len(state) - sum(state) # number of radars not detecting anything
+            return -500
+        return 30 - sum(state) # number of radars not detecting anything
 
 
 class DQNAgent():
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=3000)
+        self.memory = deque(maxlen=2000)
         self.gamma = 0.95  # discount rate
-        self.epsilon = 0.5  # exploration rate
+        self.epsilon = 1  # exploration rate
         self.epsilon_min = 0.05
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
@@ -316,8 +322,8 @@ class DQNAgent():
         # Neural Net for Deep-Q learning Model
         model = keras.Sequential()
         model.add(keras.layers.Dense(
-            6, input_dim=self.state_size, activation='relu'))
-        model.add(keras.layers.Dense(6, activation='relu'))
+            24, input_dim=self.state_size, activation='relu'))
+        model.add(keras.layers.Dense(24, activation='relu'))
         model.add(keras.layers.Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
                       optimizer=keras.optimizers.Adam(lr=self.learning_rate))
@@ -345,17 +351,18 @@ class DQNAgent():
             if not done:
                 target = reward + self.gamma * \
                     np.amax(self.model.predict(next_state)[0])
-                print('target', target)
+            print('target', target)
             target_f = self.model.predict(state)
             target_f[0][action] = target
-            self.model.fit(state, target_f, epochs=1,
+            history = self.model.fit(state, target_f, epochs=1,
                            verbose=0, callbacks=[cp_callback])
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
+        return history
 
 
 if __name__ == "__main__":
-    state_size = 5
+    state_size = 3
     nb_actions = 3
     agent = DQNAgent(state_size, nb_actions)
     game = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT, agent=agent)

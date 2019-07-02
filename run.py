@@ -150,7 +150,7 @@ class MyGame(arcade.Window):
         self.draw = True
         self.graphs = False
         self.pause = False
-        self.history = {'games': [], 'score': [], 'epsilons': [], 'rewards': [], 'loss': []}
+        self.history = {'games': [], 'score': [], 'epsilons': [], 'rewards': []}
         self._world = []
         # map 1
         # self._world.append([(400, 400), (500, 400), (500, 500), (400, 500)])
@@ -225,8 +225,6 @@ class MyGame(arcade.Window):
             ax[1, 0].plot(self.history['games'],
                           self.history['rewards'], label='rewards')
             plt.legend()
-            ax[1, 1].plot(self.history['loss'], label='loss')
-            plt.legend()
             plt.show()
             self.graphs = False
 
@@ -258,17 +256,15 @@ class MyGame(arcade.Window):
         self.agent.remember(cur_state, action, reward, next_state, done)
 
         self._steps += 1
-        # replay
-        if self._steps > 32 and self._steps % 32 == 0:
-            history = self.agent.replay(32)
-            self.history['loss'].append(history.history['loss'][0])
+        # replay only when a lot of exploration has been done
+        if len(self.agent.memory) > 1000 and self._steps % 5 == 0:
+            history = self.agent.replay(50)
 
         if done:
             self.history['games'].append([self.games])
             self.history['score'].append([self._steps])
             self.history['epsilons'].append([self.agent.epsilon])
             self.history['rewards'].append([self.cum_reward])
-
             # restart game
             self.games += 1
             self.setup()
@@ -314,7 +310,7 @@ class MyGame(arcade.Window):
     def _get_reward(self):
         if self.car.collides:
             # collides
-            return -500
+            return -100
 
         reward = 1
         is_turning = 1 if self.car.change_angle != 0 else 0
@@ -329,10 +325,10 @@ class DQNAgent():
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
         self.gamma = 0.95  # discount rate
-        self.epsilon = 0.5  # exploration rate
-        self.epsilon_min = 0.01
+        self.epsilon = 1  # exploration rate
+        self.epsilon_min = 0.1
         self.epsilon_decay = 0.995
-        self.learning_rate = 0.005
+        self.learning_rate = 0.01
         self.model = self._build_model()
 
     def _build_model(self):
@@ -340,7 +336,7 @@ class DQNAgent():
         model = keras.Sequential()
         model.add(keras.layers.Dense(
             24, input_dim=self.state_size, activation='relu'))
-        model.add(keras.layers.Dense(24, activation='relu'))
+        model.add(keras.layers.Dense(10, activation='relu'))
         model.add(keras.layers.Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
                       optimizer=keras.optimizers.Adam(lr=self.learning_rate))

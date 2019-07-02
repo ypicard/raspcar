@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 800
-# no_obstacles, cp, gamma_0-1.ckpt
+
 checkpoint_path = "saves/save.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
@@ -74,7 +74,7 @@ class Car(arcade.Sprite):
         self.collides = False
         self._terrain = terrain
         self.change_angle = 0
-        # self.radians = random.random() * 3.14
+        # self.radians = random.random() * 3.14 # random initial angle
 
     def turn(self, val):
         """
@@ -307,11 +307,7 @@ class MyGame(arcade.Window):
 
     def _get_state(self):
         car_state = self.car.get_state()
-        # [change_angle, ...bips]
-        is_turning = 1 if car_state[3] != 0 else 0
         radar_values = car_state[4:]
-        # try removing is turning from state, but keep it in reward computation
-        # state = [is_turning] + radar_values
         state = radar_values
         return state
 
@@ -319,11 +315,10 @@ class MyGame(arcade.Window):
         if self.car.collides:
             # collides
             return -500
-        # max reward - radars activated - turning angle (to reward straight lines)
+
         reward = 1
         is_turning = 1 if self.car.change_angle != 0 else 0
         reward -= is_turning
-        # reward -= (sum((state[1:]) +state[0])/len(state(1:))
 
         return  reward
 
@@ -359,15 +354,12 @@ class DQNAgent():
 
     def act(self, state):
         if np.random.rand() <= self.epsilon:
-            print(f"exploration (epsilon={self.epsilon})")
             return random.randrange(self.action_size)
 
         act_values = self.model.predict(state)
-        print(act_values[0])
         return np.argmax(act_values[0])  # regturns action
 
     def replay(self, batch_size):
-        print("replay")
         minibatch = random.sample(self.memory, batch_size)
         for state, action, reward, next_state, done in minibatch:
             target = reward

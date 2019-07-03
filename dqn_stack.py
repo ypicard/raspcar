@@ -13,7 +13,7 @@ import itertools
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 800
 
-checkpoint_path = "saves/save.ckpt"
+checkpoint_path = "saves/dqn_stack/cp.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                  save_weights_only=True,

@@ -308,7 +308,11 @@ class MyGame(arcade.Window):
         done = self.car.collides or self._steps == 750
         # reward
         # reward = 1  # best so far
-        reward = len(state[0]) - sum(state[0]) + 1
+        prev_radars = state[0][:len(self.car.radars)] 
+        cur_radars = state[0][len(self.car.radars)+ 1: -1] 
+        prev_turning = state[0][len(self.car.radars)] 
+        cur_turning = state[0][-1] 
+        reward = 3 - cur_turning - prev_turning
         if self.car.collides:
             reward = -50
 

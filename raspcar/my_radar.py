@@ -1,6 +1,7 @@
 from time import sleep, time
 import RPi.GPIO as GPIO
 
+
 class MyRadar:
     ''' HC-SR04 module python implementation '''
 
@@ -38,6 +39,7 @@ class MyRadar:
 
         return distance
 
+
 if __name__ == '__main__':
     trigger = 18
     echo = 24
@@ -46,8 +48,8 @@ if __name__ == '__main__':
     try:
         while True:
             dist = radar.distance()
-            print ("Measured Distance = %.1f m" % dist)
+            print("Measured Distance = %.1f m" % dist)
             sleep(1)
- 
+
     finally:
         GPIO.cleanup()

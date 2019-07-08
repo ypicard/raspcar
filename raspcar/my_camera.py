@@ -6,6 +6,7 @@ from collections import deque
 from time import sleep
 from lane_detector import LaneDetector
 
+
 class MyCamera(threading.Thread):
     ''' Raspberry camera module python implementation '''
 
@@ -17,7 +18,7 @@ class MyCamera(threading.Thread):
         self._lock = threading.Lock()
         self._camera = PiCamera()
         self._camera.resolution = resolution
-        self._camera.framerate = framerate 
+        self._camera.framerate = framerate
         self._stream = PiRGBArray(self._camera)
         self._lane_detector = LaneDetector()
         self._frames = deque(maxlen=nb_frames)
@@ -26,7 +27,7 @@ class MyCamera(threading.Thread):
 
     def run(self):
         for frame in self._camera.capture_continuous(self._stream, format='bgr', use_video_port=True):
-            # New frame in numpy format 
+            # New frame in numpy format
             img = frame.array
             # Detect lanes in each frames
             img_processed = self._lane_detector.process(img)
@@ -38,7 +39,6 @@ class MyCamera(threading.Thread):
             with self._lock:
                 self._frames.append(img)
                 self._frames_processed.append(img_processed)
-
 
     def lanes(self):
         with self._lock:

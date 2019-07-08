@@ -12,5 +12,3 @@ if __name__ == '__main__':
             car.update()
     except Exception:
         print(traceback.print_exc())
-
-    

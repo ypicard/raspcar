@@ -1,5 +1,6 @@
 from action import Action
 
+
 class Agent:
 
     __slots__ = '_model'

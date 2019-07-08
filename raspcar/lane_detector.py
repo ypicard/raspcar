@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import logging
 
+
 class LaneDetector:
     ''' Detect lanes on an image '''
 

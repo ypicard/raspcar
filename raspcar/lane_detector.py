@@ -1,15 +1,18 @@
 from collections import deque
 import numpy as np
 import cv2
+import logging
 
 class LaneDetector:
     ''' Detect lanes on an image '''
 
     def __init__(self):
+        logging.debug('LaneDetector.__init__')
         self.left_lines = deque(maxlen=5)
         self.right_lines = deque(maxlen=5)
 
     def process(self, img):
+        logging.debug('LaneDetector.process')
         img_lines = np.zeros_like(img)
 
         img_processed = self._white_yellow(img)
@@ -19,6 +22,7 @@ class LaneDetector:
         img_processed = self._interest_region(img_processed)
         hough_lines = self._hough_lines(img_processed)
         if hough_lines is None:
+            logging.debug('No lines found')
             # no line detected: return empty img
             return img_lines
         left_line, right_line = self._lane_lines(img_processed, hough_lines)

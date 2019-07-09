@@ -6,10 +6,9 @@ import my_radar
 import my_camera
 from agent import Agent
 
-
 class Car():
 
-    __slots__ = '_camera', '_radars', '_agent', '_state'
+    __slots__ = '_camera', '_radars', '_agent', 'state'
 
     def __init__(self):
         logging.debug("Car.__init__")
@@ -19,17 +18,17 @@ class Car():
 
     def update(self):
         logging.debug('Car.update')
-        state = self.state()
+        state = self.get_state()
         logging.debug(f'state shape={len(state)}')
         action = self._agent.predict(state)
         logging.debug(f'action={action}')
         self._act(action)
-        self._state = state
+        self.state = state
 
     def _act(self, action):
         pass
 
-    def state(self):
+    def get_state(self):
         state = []
         # radar states
         for radar in self._radars:
@@ -51,5 +50,5 @@ if __name__ == "__main__":
         img_with_lines = car._lane_detector.draw_lines_on_img(img, lines)
         # cv2.imshow('img with lines', img_with_lines)
         # cv2.waitKey(0)
-        state = car.state()
+        state = car.get_state()
         print(len(state))

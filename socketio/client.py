@@ -10,10 +10,11 @@ def encode_img(img):
     success, encoded_img = cv2.imencode('.png', img)
     return encoded_img
 
-img = np.uint8(255 * np.random.rand(50, 50))
-print(img)
-img_encoded = encode_img(img).tostring()
-print(f'Bytes to be sent: {sys.getsizeof(img_encoded)}')
-clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-clientsocket.connect(('localhost', 8089))
-clientsocket.send(img_encoded)
+while True:
+    img = np.uint8(255 * np.random.rand(50, 50))
+    img_encoded = encode_img(img).tostring()
+    print(f'Bytes to be sent: {sys.getsizeof(img_encoded)}')
+    clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    clientsocket.connect(('localhost', 8089))
+    clientsocket.send(img_encoded)
+    

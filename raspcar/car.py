@@ -2,8 +2,8 @@ from time import sleep
 import cv2
 import logging
 import io
-import my_radar
-import my_camera
+from radar import Radar
+import camera import Camera
 from agent import Agent
 
 class Car():
@@ -12,8 +12,8 @@ class Car():
 
     def __init__(self):
         logging.debug("Car.__init__")
-        self._camera = my_camera.MyCamera()
-        self._radars = [my_radar.MyRadar(18, 24)]
+        self._camera = Camera()
+        self._radars = [MyRadar(18, 24)]
         self._agent = Agent()
 
     def update(self):

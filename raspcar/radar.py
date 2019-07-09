@@ -2,7 +2,7 @@ from time import sleep, time
 import RPi.GPIO as GPIO
 
 
-class MyRadar:
+class Radar:
     ''' HC-SR04 module python implementation '''
 
     __slots__ = '_trigger_gpio', '_echo_gpio'

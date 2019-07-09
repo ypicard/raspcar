@@ -7,7 +7,7 @@ from time import sleep
 from lane_detector import LaneDetector
 
 
-class MyCamera(threading.Thread):
+class Camera(threading.Thread):
     ''' Raspberry camera module python implementation '''
 
     __slots__ = '_camera', '_stream', '_frames', '_frames_processed', '_lane_detector', '_lock'

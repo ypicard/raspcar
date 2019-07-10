@@ -1,12 +1,14 @@
 import socket
-from flask import Flask
+from flask import Flask, Response
 import threading
 import numpy as np
 import cv2
 app = Flask(__name__)
+from collections import deque
+import base64 
 
-data = []
-FRAME_SIZE_BYTES = 2651
+data_queue = deque(maxlen=100)
+FRAME_SIZE_BYTES = 2730
 
 def launch_socket_server():
 
@@ -18,22 +20,50 @@ def launch_socket_server():
     
     while True:
         buffer = connection.recv(FRAME_SIZE_BYTES)
-        print(len(buffer))
-        img = np.frombuffer(buffer, dtype='uint8')
-        img = cv2.imdecode(img, cv2.IMREAD_UNCHANGED)
-# yann
-        # cv2.imshow('test', img)
-        # cv2.waitKey(1)
 
-        # if len(buffer) > 0:
-        #     print('buffer' + str(buffer))
-        #     data.append(buffer.decode())
+        if len(buffer) > 0:
+            bytes_img = buffer
+            # get img bytes
+            png_img = np.frombuffer(bytes_img, dtype='uint8')
+            # reconstruct numpy array from buffer
+            numpy_img = cv2.imdecode(png_img, cv2.IMREAD_COLOR)
+            # base 64 encode
+            base64_img = base64.b64encode(png_img).decode()
+            # save img in queue
+            data_queue.append(bytes_img)
 
+
+PAGE="""\
+<html>
+<head>
+<title>picamera MJPEG streaming demo</title>
+</head>
+<body>
+<h1>PiCamera MJPEG Streaming Demo</h1>
+<img src="stream.mjpg" width="640" height="480" />
+</body>
+</html>
+"""
 
 @app.route("/")
 def hello():
-    return "Hello World! " + str(len(data))
+    return PAGE
 
+
+def gen():
+    while True:
+        if not data_queue:
+            continue
+        frame = data_queue.popleft()
+        # convert to bytes
+        # frame = frame.tostring()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+@app.route("/stream.mjpg")
+def stream():
+    return Response(gen(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 print("Start thread")
 t = threading.Thread(target=launch_socket_server)

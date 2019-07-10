@@ -1,0 +1,24 @@
+<html>
+  <head>
+    <title>Raspcar dashboard</title>
+    <script
+      src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"
+      integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I="
+      crossorigin="anonymous"
+    ></script>
+    <script type="text/javascript" charset="utf-8">
+      var radarSocket = io("/radar");
+      radarSocket.on("connect", function() {
+        console.log("radarSocket connected");
+      });
+
+      radarSocket.on("new value", function(value) {
+        console.log("received ", value);
+      });
+    </script>
+  </head>
+  <body>
+    <h1>Camera feed</h1>
+    <!-- <img src="camera_feed.mjpg" width="640" height="480" /> -->
+  </body>
+</html>

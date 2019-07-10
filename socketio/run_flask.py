@@ -7,7 +7,7 @@ app = Flask(__name__)
 from collections import deque
 import base64 
 
-data_queue = deque(maxlen=100)
+data_queue = deque(maxlen=10)
 FRAME_SIZE_BYTES = 2730
 
 def launch_socket_server():
@@ -23,12 +23,12 @@ def launch_socket_server():
 
         if len(buffer) > 0:
             bytes_img = buffer
-            # get img bytes
+            # use numpy to construct an array from the bytes
             png_img = np.frombuffer(bytes_img, dtype='uint8')
-            # reconstruct numpy array from buffer
+            # decode the array into an image
             numpy_img = cv2.imdecode(png_img, cv2.IMREAD_COLOR)
-            # base 64 encode
-            base64_img = base64.b64encode(png_img).decode()
+            # base 64 encode string
+            base64_img_str = base64.b64encode(png_img).decode()
             # save img in queue
             data_queue.append(bytes_img)
 
@@ -54,11 +54,12 @@ def gen():
     while True:
         if not data_queue:
             continue
+        # frame in bytes
         frame = data_queue.popleft()
-        # convert to bytes
-        # frame = frame.tostring()
+
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+               b'Content-Type: image/png\r\n\r\n' + frame + b'\r\n')
+        
 
 @app.route("/stream.mjpg")
 def stream():

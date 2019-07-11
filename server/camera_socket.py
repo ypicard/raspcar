@@ -3,6 +3,7 @@ import socket
 import threading
 from collections import deque
 
+logger = logging.getLogger(__name__)
 
 class CameraSocket(threading.Thread):
 
@@ -15,18 +16,16 @@ class CameraSocket(threading.Thread):
         self._frames = deque(maxlen=10)
         self._socket.bind((self._host, self._port))
         self._socket.listen(5) # become a server socket, maximum 5 connections
-        logging.info("CameraSocket listening")
-        
         self.start()
 
     def run(self):
-        logging.debug('CameraSocket waiting for connection...')
+        logger.debug('CameraSocket waiting for connection')
         connection, address = self._socket.accept()
         while True:
             buffer = connection.recv(self._frame_size)
 
             if len(buffer) > 0:
-                logging.debug("frame received")
+                logger.debug("frame received")
                 bytes_img = buffer
                 # # use numpy to construct an array from the bytes
                 # png_img = np.frombuffer(bytes_img, dtype='uint8')

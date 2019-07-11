@@ -1,6 +1,7 @@
+import logging
 from time import sleep, time
 import RPi.GPIO as GPIO
-
+logger = logging.getLogger(__name__)
 
 class Radar:
     ''' HC-SR04 module python implementation '''

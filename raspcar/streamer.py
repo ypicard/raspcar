@@ -2,13 +2,14 @@ import threading
 import socket
 from collections import deque
 import logging
+logger = logging.getLogger(__name__)
 
 
 class Streamer(threading.Thread):
     __slots__ = '_host', '_port', '_socket', '_frames', '_lock'
 
     def __init__(self, host, port):
-        logging.debug('Streamer.__init__')
+        logger.debug('Streamer.__init__')
         self.frames = deque(maxlen=5)
         self._lock = threading.Lock()
         self._host = host
@@ -21,14 +22,14 @@ class Streamer(threading.Thread):
         while True:
             # send img through socket asap
             with self._lock:
-                logging.debug(f'{len(_frames)} waiting for socket')
+                logger.debug(f'{len(_frames)} waiting for socket')
                 if q.empty():
                     return
                 img = self._frames.popleft()
 
             # encode img to byte buffer
             img = encode_img(img).tostring()
-            logging.debug(f'Bytes to be sent: {sys.getsizeof(img)}')
+            logger.debug(f'Bytes to be sent: {sys.getsizeof(img)}')
             
             self._socket.send(img)
 

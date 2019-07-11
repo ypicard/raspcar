@@ -1,4 +1,5 @@
 import logging
+logger = logging.getLogger(__name__)
 from picamera import PiCamera
 from picamera.array import PiRGBArray
 import threading
@@ -14,7 +15,6 @@ class Camera(threading.Thread):
 
     def __init__(self, resolution=(640, 480), framerate=30, nb_frames=5):
         super(MyCamera, self).__init__()
-        logging.debug("MyCamera.__init__")
         self._lock = threading.Lock()
         self._camera = PiCamera()
         self._camera.resolution = resolution

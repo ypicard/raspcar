@@ -3,6 +3,7 @@ import socket
 import threading
 from collections import deque
 from time import sleep
+logger = logging.getLogger(__name__)
 
 class RadarSocket(threading.Thread):
 
@@ -14,13 +15,11 @@ class RadarSocket(threading.Thread):
         self._values = deque(maxlen=10)
         self._socket.bind((self._host, self._port))
         self._socket.listen(5) # become a server socket, maximum 5 connections
-        logging.info("RadarSocket listening")
-        
         self.start()
 
     def run(self):
+        logger.debug('RadarSocket waiting for connection')
         while True:
-            print("append values")
             self._values.append(3)
             sleep(1)
         # logging.debug('RadarSocket waiting for connection...')

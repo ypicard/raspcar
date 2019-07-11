@@ -2,10 +2,11 @@ from car import Car
 from streamer import Streamer
 import logging
 import traceback
+logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
-    logging.info("Starting main script")
+    logger.info("Starting main script")
     car = Car()
     streamer = Streamer('localhost', 8089)
     try:

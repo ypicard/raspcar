@@ -1,6 +1,7 @@
 from time import sleep
 import cv2
 import logging
+logger = logging.getLogger(__name__)
 import io
 from radar import Radar
 import camera import Camera
@@ -11,17 +12,17 @@ class Car():
     __slots__ = '_camera', '_radars', '_agent', 'state'
 
     def __init__(self):
-        logging.debug("Car.__init__")
+        logger.debug("Car.__init__")
         self._camera = Camera()
         self._radars = [MyRadar(18, 24)]
         self._agent = Agent()
 
     def update(self):
-        logging.debug('Car.update')
+        logger.debug('Car.update')
         state = self.get_state()
-        logging.debug(f'state shape={len(state)}')
+        logger.debug(f'state shape={len(state)}')
         action = self._agent.predict(state)
-        logging.debug(f'action={action}')
+        logger.debug(f'action={action}')
         self._act(action)
         self.state = state
 
@@ -41,7 +42,7 @@ class Car():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    logging.info("Starting script...")
+    logger.info("Starting script...")
     car = Car()
     sleep(2)
     while True:

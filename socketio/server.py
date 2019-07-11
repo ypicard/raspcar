@@ -29,28 +29,19 @@ async def camera_feed(request):
                 with MultipartWriter('image/jpeg', boundary='frame') as mpwriter:
                     print("writing")
                     mpwriter.append(frame, {'Content-Type': 'image/jpeg'})
-                    await mpwriter.write(response)
+                    await mpwriter.write(response, close_boundary=False)
+            # release event loop
             await asyncio.sleep(0.01)
             
         except Exception as e:
-            # So you can observe on disconnects and such.
+            # disconnect
             print(repr(e))
             # raise
             traceback.print_tb(e.__traceback__)
             raise
 
     return response
-    # try:
-    #     while True:
-    #         frame = camera_socket.get_frame()
-    #         if not frame:
-    #             continue
 
-    #         data = b'--frame\r\nContent-Type: image/png\r\n\r\n' + frame + b'\r\n'
-    #         await response.write(data)
-    # finally:
-    #     await resp.write_eof()
-    # return response
 
 app = web.Application()
 cors = aiohttp_cors.setup(app)

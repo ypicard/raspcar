@@ -7,7 +7,7 @@ from time import sleep
 class RadarSocket(threading.Thread):
 
     def __init__(self, host, port):
-        super(RadarSocket, self).__init__()
+        super(RadarSocket, self).__init__(daemon=True)
         self._host = host
         self._port = port
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

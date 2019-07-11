@@ -7,7 +7,7 @@ from collections import deque
 class CameraSocket(threading.Thread):
 
     def __init__(self, host, port, frame_size):
-        super(CameraSocket, self).__init__()
+        super(CameraSocket, self).__init__(daemon=True)
         self._host = host
         self._port = port
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

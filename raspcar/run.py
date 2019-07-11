@@ -1,12 +1,14 @@
+import logging
+logger = logging.getLogger(__name__)
 from car import Car
 from streamer import Streamer
-import logging
+import yaml
 import traceback
-logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     logger.info("Starting main script")
+    config = yaml.safe_load(open('config.yaml'))
     car = Car()
     streamer = Streamer('localhost', 8089)
     try:

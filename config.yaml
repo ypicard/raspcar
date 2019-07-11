@@ -1,0 +1,11 @@
+car:
+  radar:
+    host:
+    port: 8089
+  camera:
+    host:
+    port:
+server:
+  camera:
+    host:
+      port:

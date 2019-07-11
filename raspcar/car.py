@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(__name__)
 import io
 from radar import Radar
-import camera import Camera
+from camera import Camera
 from agent import Agent
 
 class Car():

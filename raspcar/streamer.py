@@ -9,7 +9,6 @@ class Streamer(threading.Thread):
     __slots__ = '_host', '_port', '_socket', '_frames', '_lock'
 
     def __init__(self, host, port):
-        logger.debug('Streamer.__init__')
         self.frames = deque(maxlen=5)
         self._lock = threading.Lock()
         self._host = host

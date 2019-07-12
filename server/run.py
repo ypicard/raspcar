@@ -2,7 +2,8 @@
 import sys
 import logging
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-
+logging.getLogger('socketio').setLevel(logging.ERROR)
+logging.getLogger('engineio').setLevel(logging.ERROR)
 import server
 
 if __name__ == '__main__':

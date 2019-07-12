@@ -18,6 +18,8 @@ camera_socket = CameraSocket(addr='tcp://127.0.0.1:8089')
 radar_socket = RadarSocket(addr='tcp://127.0.0.1:8090')
 
 ''' AIOHTTP '''
+
+
 async def index(request):
     dirname = os.path.dirname(__file__)
     filename = os.path.join(dirname, './templates/index.html')
@@ -28,13 +30,13 @@ async def camera_feed(request):
 
     response = web.StreamResponse(status=200, headers={
                                   'Content-Type': 'multipart/x-mixed-replace;boundary=--frame'})
-    
+
     await response.prepare(request)
 
     async with aiohttp.ClientSession() as client:
         while True:
             frame = camera_socket.get_frame()
-            
+
             if frame:
                 with MultipartWriter('image/jpeg', boundary='frame') as mpwriter:
                     mpwriter.append(frame, {'Content-Type': 'image/jpeg'})
@@ -63,20 +65,20 @@ for route in list(app.router.routes()):
 ''' SOCKET IO '''
 sio = socketio.AsyncServer(async_mode='aiohttp')
 sio.attach(app)
-    
 
 
-@sio.event(namespace="/radar")
-async def connect(sid, environ):
-    logger.info('/radar socket connected')
+async def emit_radar():
+    logger.info("Starting radar emitting task...")
     while True:
         value = radar_socket.get_value()
         if not value:
             continue
         await sio.emit("new value", value, namespace="/radar")
-    # asyncio.create_task(emit_radar())
+        await asyncio.sleep(0.01)
 
 
 def start():
+    loop = asyncio.get_event_loop()
+    loop.create_task(emit_radar())
     logger.info("Starting server...")
     web.run_app(app)

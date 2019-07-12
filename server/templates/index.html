@@ -11,46 +11,36 @@
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <!-- socketio -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
-    <!-- socketio for vue.js -->
-    <script src="https://cdn.jsdelivr.net/npm/vue-socket.io@3.0.7/dist/vue-socketio.min.js"></script>
   </head>
   <body>
     <h1>Camera feed</h1>
     <img src="camera_feed.mjpg" width="640" height="480" />
     <div id="app">
-      {{ message }}
-      <todo-item></todo-item>
+      <radar v-bind:distance="radarDistance"></radar>
     </div>
   </body>
   <script>
-    var ioInstance = new VueSocketIO({
-      connection: io("/radar")
-    });
-
     // Vue.use(VueSocketio, ioInstance); // bind custom socketio instance
-    Vue.component("todo-item", {
-      template: "<li>This is a todo</li>"
+    Vue.component('radar', {
+      template: '<div>Radar distance: {{ distance }}</div>',
+      props: ['distance']
     });
 
     var app = new Vue({
-      el: "#app",
+      el: '#app',
       data: {
-        message: "Hello Vue!"
-      },
-      sockets: {
-        connect: function() {
-          console.log("socket connected");
-        }
+        radarDistance: null
       }
     });
 
-    // var radarSocket = io("/radar");
-    // radarSocket.on("connect", function() {
-    //   console.log("radarSocket connected");
-    // });
+    var radarSocket = io('/radar');
+    radarSocket.on('connect', function() {
+      console.log('radarSocket connected');
+    });
 
-    // radarSocket.on("new value", function(value) {
-    //   console.log("received ", value);
-    // });
+    radarSocket.on('new value', function(value) {
+      console.log('received ', value);
+      app.radarDistance = value;
+    });
   </script>
 </html>

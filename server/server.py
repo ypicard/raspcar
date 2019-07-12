@@ -74,7 +74,7 @@ async def emit_radar():
         if not value:
             continue
         await sio.emit("new value", value, namespace="/radar")
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(1)
 
 
 def start():

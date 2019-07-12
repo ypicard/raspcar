@@ -4,7 +4,7 @@ import threading
 from collections import deque
 from time import sleep
 import zmq
-
+import random
 
 class RadarSocket(threading.Thread):
 
@@ -19,7 +19,7 @@ class RadarSocket(threading.Thread):
     def run(self):
         logger.debug('RadarSocket waiting for connection')
         while True:
-            self._values.append(3)
+            self._values.append(random.randint(0,10))
         # logging.debug('RadarSocket waiting for connection...')
         # connection, address = self._socket.accept()
         # while True:

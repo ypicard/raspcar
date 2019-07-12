@@ -1,72 +1,81 @@
+import traceback
+import aiohttp_cors
+import threading
+import asyncio
+import aiohttp
+from aiohttp import web, MultipartWriter
+import socketio
+from radar_socket import RadarSocket
+from camera_socket import CameraSocket
+from collections import deque
+import os
 import sys
 import logging
 logger = logging.getLogger(__name__)
-from collections import deque
-from camera_socket import CameraSocket
-from radar_socket import RadarSocket
-import socketio
-from aiohttp import web, MultipartWriter
-import asyncio
-from time import sleep
-import threading
-import aiohttp_cors
-import traceback
 
 ''' VARIABLES '''
-camera_socket = CameraSocket(host='localhost', port=8089, frame_size=2730)
-radar_socket = RadarSocket(host='localhost', port=8090)
+camera_socket = CameraSocket(addr='tcp://127.0.0.1:8089')
+radar_socket = RadarSocket(addr='tcp://127.0.0.1:8090')
 
 ''' AIOHTTP '''
 async def index(request):
-    return web.FileResponse('./templates/index.html')
+    dirname = os.path.dirname(__file__)
+    filename = os.path.join(dirname, './templates/index.html')
+    return web.FileResponse(filename)
+
 
 async def camera_feed(request):
+
+    response = web.StreamResponse(status=200, headers={
+                                  'Content-Type': 'multipart/x-mixed-replace;boundary=--frame'})
     
-    response = web.StreamResponse(status=200,headers={'Content-Type': 'multipart/x-mixed-replace;boundary=--frame'})
     await response.prepare(request)
 
-    while True:
-        frame = camera_socket.get_frame()
-        try:
+    async with aiohttp.ClientSession() as client:
+        while True:
+            frame = camera_socket.get_frame()
+            
             if frame:
                 with MultipartWriter('image/jpeg', boundary='frame') as mpwriter:
                     mpwriter.append(frame, {'Content-Type': 'image/jpeg'})
                     await mpwriter.write(response, close_boundary=False)
             # release event loop
-            await asyncio.sleep(0.01)
-            
-        except Exception as e:
-            # disconnect
-            logger.error(repr(e))
-            # raise
-            traceback.print_tb(e.__traceback__)
-            raise
+            await asyncio.sleep(0.1)
 
     return response
 
 
 app = web.Application()
-cors = aiohttp_cors.setup(app)
-app.add_routes([web.get('/', index),
-    web.get('/camera_feed.mjpg', camera_feed)])
 
+app.add_routes([web.get('/', index),
+                web.get('/camera_feed.mjpg', camera_feed)])
+# Cors all routes
+cors = aiohttp_cors.setup(app, defaults={
+    "*": aiohttp_cors.ResourceOptions(
+        allow_credentials=True,
+        expose_headers="*",
+        allow_headers="*",
+    )
+})
+for route in list(app.router.routes()):
+    cors.add(route)
 
 ''' SOCKET IO '''
 sio = socketio.AsyncServer(async_mode='aiohttp')
 sio.attach(app)
+    
 
 
-async def emit_radar():
+@sio.event(namespace="/radar")
+async def connect(sid, environ):
+    logger.info('/radar socket connected')
     while True:
         value = radar_socket.get_value()
         if not value:
             continue
         await sio.emit("new value", value, namespace="/radar")
+    # asyncio.create_task(emit_radar())
 
-@sio.event( namespace="/radar")
-def connect(sid, environ):
-    logger.info('/radar socket connected')
-    asyncio.create_task(emit_radar())
 
 def start():
     logger.info("Starting server...")

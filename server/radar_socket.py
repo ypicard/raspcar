@@ -1,27 +1,25 @@
 import logging
-import socket
+logger = logging.getLogger(__name__)
 import threading
 from collections import deque
 from time import sleep
-logger = logging.getLogger(__name__)
+import zmq
+
 
 class RadarSocket(threading.Thread):
 
-    def __init__(self, host, port):
+    def __init__(self, addr):
         super(RadarSocket, self).__init__(daemon=True)
-        self._host = host
-        self._port = port
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        context = zmq.Context()
         self._values = deque(maxlen=10)
-        self._socket.bind((self._host, self._port))
-        self._socket.listen(5) # become a server socket, maximum 5 connections
+        self._socket = context.socket(zmq.REP)
+        self._socket.bind(addr)
         self.start()
 
     def run(self):
         logger.debug('RadarSocket waiting for connection')
         while True:
             self._values.append(3)
-            sleep(1)
         # logging.debug('RadarSocket waiting for connection...')
         # connection, address = self._socket.accept()
         # while True:

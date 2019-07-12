@@ -6,19 +6,21 @@ import io
 from radar import Radar
 from camera import Camera
 from agent import Agent
+from streamer import CameraStreamer
 
 class Car():
 
-    __slots__ = '_camera', '_radars', '_agent', 'state'
+    __slots__ = '_camera', '_radars', '_agent', '_streamer', 'state'
 
     def __init__(self):
-        logger.debug("Car.__init__")
+        logger.debug("__init__")
         self._camera = Camera()
         self._radars = [MyRadar(18, 24)]
         self._agent = Agent()
+        self._streamer = CameraStreamer(self._camera)
 
     def update(self):
-        logger.debug('Car.update')
+        logger.debug('update')
         state = self.get_state()
         logger.debug(f'state shape={len(state)}')
         action = self._agent.predict(state)
@@ -42,7 +44,6 @@ class Car():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    logger.info("Starting script...")
     car = Car()
     sleep(2)
     while True:

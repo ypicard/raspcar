@@ -1,3 +1,4 @@
+from time import sleep
 import logging
 logger = logging.getLogger(__name__)
 from car import Car
@@ -9,7 +10,6 @@ if __name__ == '__main__':
     car = Car()
     try:
         while True:
-            logging.debug('Loop start')
             car.update()
             
     except Exception:

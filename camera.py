@@ -28,7 +28,7 @@ class Camera(threading.Thread):
             # New frame in numpy format
             img = frame.array
             # Detect lanes in each frames
-            lanes = self._lane_detector.process(img)
+            # lanes = self._lane_detector.process(img)
             # Truncate and reset read position for next frames
             self._stream.truncate()
             self._stream.seek(0)
@@ -36,7 +36,7 @@ class Camera(threading.Thread):
             # Store frames with thread lock
             with self._lock:
                 self._frames.append(img)
-                self._lanes.append(lanes)
+                # self._lanes.append(lanes)
 
     def lanes(self):
         with self._lock:

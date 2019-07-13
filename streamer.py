@@ -1,3 +1,4 @@
+from time import sleep
 import threading
 import socket
 from collections import deque
@@ -25,7 +26,6 @@ class CameraStreamer(threading.Thread):
             if frame is None:
                 continue
             # encode img to byte buffer
-            print(frame)
             success, img = cv2.imencode('.png', frame)
             logger.debug('sending frame')
             self._socket.send(img)

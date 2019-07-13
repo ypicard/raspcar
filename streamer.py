@@ -7,24 +7,26 @@ import zmq
 import cv2
 
 class CameraStreamer(threading.Thread):
-    __slots__ = '_socket', '_camera', '_lock'
+    __slots__ = '_socket', '_camera'
 
     def __init__(self, camera, addr):
+        super(CameraStreamer, self).__init__(daemon=True)
+        logger.info(f"connecting to {addr}")
         context = zmq.Context()
         self._camera = camera
-        self._socket = context.socket(zmq.REP)
-        self._socket.bind(addr)
-        self._lock = threading.Lock()
+        self._socket = context.socket(zmq.REQ)
+        self._socket.connect(addr)
         self.start()
 
     def run(self):
         while True:
             # send img through socket asap
-            with self._lock:
-                if self._camera._frames.empty():
-                    continue
-                img = self._camera._frames[0]
+            frame = self._camera.last_frame()
+            if frame is None:
+                continue
             # encode img to byte buffer
-            success, img = cv2.imencode('.png', img)
+            print(frame)
+            success, img = cv2.imencode('.png', frame)
             logger.debug('sending frame')
             self._socket.send(img)
+            self._socket.recv()

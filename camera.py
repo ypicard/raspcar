@@ -42,6 +42,12 @@ class Camera(threading.Thread):
         with self._lock:
             return list(self._lanes)
 
+    def last_frame(self):
+        with self._lock:
+            if not self._frames:
+                return None
+            return self._frames[-1]
+
 
 if __name__ == '__main__':
     camera = Camera()

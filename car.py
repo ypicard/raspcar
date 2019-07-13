@@ -1,12 +1,14 @@
+import config
+from streamer import CameraStreamer
+from agent import Agent
+from camera import Camera
+from radar import Radar
+import io
 from time import sleep
 import cv2
 import logging
 logger = logging.getLogger(__name__)
-import io
-from radar import Radar
-from camera import Camera
-from agent import Agent
-from streamer import CameraStreamer
+
 
 class Car():
 
@@ -15,9 +17,10 @@ class Car():
     def __init__(self):
         logger.debug("__init__")
         self._camera = Camera()
-        self._radars = [MyRadar(18, 24)]
+        self._radars = [Radar(18, 24)]
         self._agent = Agent()
-        self._streamer = CameraStreamer(self._camera)
+        self._streamer = CameraStreamer(
+            self._camera, addr=config.CAMERA['address'])
 
     def update(self):
         logger.debug('update')

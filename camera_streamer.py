@@ -15,7 +15,7 @@ class CameraStreamer(threading.Thread):
         logger.info(f"connecting to {addr}")
         context = zmq.Context()
         self._camera = camera
-        self._socket = context.socket(zmq.REQ)
+        self._socket = context.socket(zmq.PUB)
         self._socket.connect(addr)
         self.start()
 
@@ -29,4 +29,3 @@ class CameraStreamer(threading.Thread):
             success, img = cv2.imencode('.png', frame)
             logger.debug('sending frame')
             self._socket.send(img)
-            self._socket.recv()

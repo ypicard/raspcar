@@ -1,5 +1,5 @@
 import config
-from streamer import CameraStreamer
+from camera_streamer import CameraStreamer
 from agent import Agent
 from camera import Camera
 from radar import Radar

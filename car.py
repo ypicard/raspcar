@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 
 class Car():
 
-    __slots__ = '_camera', '_radars', '_agent', '_streamer', 'state'
+    __slots__ = '_camera', '_radars', '_agent', '_camera_streamer', 'state'
 
     def __init__(self):
         self._camera = Camera()
-        self._radars = [Radar(18, 24)]
+        self._radars = [Radar('test', 18, 24)]
         self._agent = Agent()
-        self._streamer = CameraStreamer(
-            self._camera, addr=config.CAMERA['address'])
+        # self._camera_streamer = CameraStreamer(
+        #    self._camera, addr=config.CAMERA['address'])
 
     def update(self):
         state = self.get_state()
@@ -35,7 +35,7 @@ class Car():
         state = []
         # radar states
         for radar in self._radars:
-            state.append(radar.distance())
+            state.append(radar.get_distance())
         # video state
         state += self._camera.lanes()
 
